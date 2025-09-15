@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:project4/fitness_app/fitness_app_theme.dart';
 import 'package:project4/fitness_app/models/student_data.dart';
+import 'package:project4/main.dart';
 
 class StudentDetailPage extends StatelessWidget {
   final StudentData studentData;
 
-  const StudentDetailPage({Key? key, required this.studentData}) : super(key: key);
+  const StudentDetailPage({Key? key, required this.studentData})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -87,54 +89,48 @@ class StudentDetailPage extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             SizedBox(height: 24),
-            
+
             // Data Pribadi
-            _buildSectionCard(
-              'Data Pribadi',
-              [
-                _buildInfoRow('NISN', studentData.nisn),
-                _buildInfoRow('Nama Lengkap', studentData.namaLengkap),
-                _buildInfoRow('Jenis Kelamin', studentData.jenisKelamin),
-                _buildInfoRow('Agama', studentData.agama),
-                _buildInfoRow('Tempat, Tanggal Lahir', '${studentData.tempatLahir}, ${studentData.tanggalLahir}'),
-                _buildInfoRow('Nomor Tlp/HP', studentData.nomorTlp),
-                _buildInfoRow('NIK', studentData.nik),
-              ],
-            ),
-            
+            _buildSectionCard('Data Pribadi', [
+              _buildInfoRow('NISN', studentData.nisn),
+              _buildInfoRow('Nama Lengkap', studentData.namaLengkap),
+              _buildInfoRow('Jenis Kelamin', studentData.jenisKelamin),
+              _buildInfoRow('Agama', studentData.agama),
+              _buildInfoRow(
+                'Tempat, Tanggal Lahir',
+                '${studentData.tempatLahir}, ${studentData.tanggalLahir}',
+              ),
+              _buildInfoRow('Nomor Tlp/HP', studentData.nomorTlp),
+              _buildInfoRow('NIK', studentData.nik),
+            ]),
+
             SizedBox(height: 16),
-            
+
             // Data Alamat
-            _buildSectionCard(
-              'Alamat',
-              [
-                _buildInfoRow('Jalan', studentData.alamat.jalan),
-                _buildInfoRow('RT/RW', studentData.alamat.rtRw),
-                _buildInfoRow('Dusun', studentData.alamat.dusun),
-                _buildInfoRow('Desa', studentData.alamat.desa),
-                _buildInfoRow('Kecamatan', studentData.alamat.kecamatan),
-                _buildInfoRow('Kabupaten', studentData.alamat.kabupaten),
-                _buildInfoRow('Provinsi', studentData.alamat.provinsi),
-                _buildInfoRow('Kode Pos', studentData.alamat.kodePos),
-              ],
-            ),
-            
+            _buildSectionCard('Alamat', [
+              _buildInfoRow('Jalan', studentData.alamat.jalan),
+              _buildInfoRow('RT/RW', studentData.alamat.rtRw),
+              _buildInfoRow('Dusun', studentData.alamat.dusun),
+              _buildInfoRow('Desa', studentData.alamat.desa),
+              _buildInfoRow('Kecamatan', studentData.alamat.kecamatan),
+              _buildInfoRow('Kabupaten', studentData.alamat.kabupaten),
+              _buildInfoRow('Provinsi', studentData.alamat.provinsi),
+              _buildInfoRow('Kode Pos', studentData.alamat.kodePos),
+            ]),
+
             SizedBox(height: 16),
-            
+
             // Data Orang Tua/Wali
-            _buildSectionCard(
-              'Orang Tua/Wali',
-              [
-                _buildInfoRow('Nama Ayah', studentData.orangTua.namaAyah),
-                _buildInfoRow('Nama Ibu', studentData.orangTua.namaIbu),
-                if (studentData.orangTua.namaWali.isNotEmpty)
-                  _buildInfoRow('Nama Wali', studentData.orangTua.namaWali),
-                _buildInfoRow('Alamat', studentData.orangTua.alamat),
-              ],
-            ),
-            
+            _buildSectionCard('Orang Tua/Wali', [
+              _buildInfoRow('Nama Ayah', studentData.orangTua.namaAyah),
+              _buildInfoRow('Nama Ibu', studentData.orangTua.namaIbu),
+              if (studentData.orangTua.namaWali.isNotEmpty)
+                _buildInfoRow('Nama Wali', studentData.orangTua.namaWali),
+              _buildInfoRow('Alamat', studentData.orangTua.alamat),
+            ]),
+
             SizedBox(height: 24),
           ],
         ),
