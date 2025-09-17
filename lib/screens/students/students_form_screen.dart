@@ -11,13 +11,16 @@ class StudentsFormScreen extends StatefulWidget {
 }
 
 class _StudentsFormScreenState extends State<StudentsFormScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _identitasFormKey = GlobalKey<FormState>();
+  final _alamatFormKey = GlobalKey<FormState>();
+  final _orangTuaFormKey = GlobalKey<FormState>();
   bool _submitting = false;
+  int _currentStep = 0;
 
   final TextEditingController _nisn = TextEditingController();
   final TextEditingController _namaLengkap = TextEditingController();
   String _jenisKelamin = 'Laki-laki';
-  final TextEditingController _agama = TextEditingController();
+  String _agama = 'Islam';
   final TextEditingController _tempatLahir = TextEditingController();
   DateTime? _tanggalLahir;
   final TextEditingController _nomorTlp = TextEditingController();
@@ -43,7 +46,7 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       _nisn.text = s.nisn;
       _namaLengkap.text = s.namaLengkap;
       _jenisKelamin = s.jenisKelamin;
-      _agama.text = s.agama;
+      _agama = s.agama;
       _tempatLahir.text = s.tempatLahir;
       _tanggalLahir = s.tanggalLahir;
       _nomorTlp.text = s.nomorTlp;
@@ -67,7 +70,6 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
   void dispose() {
     _nisn.dispose();
     _namaLengkap.dispose();
-    _agama.dispose();
     _tempatLahir.dispose();
     _nomorTlp.dispose();
     _nik.dispose();
@@ -87,7 +89,12 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate all forms before submission
+    if (!_identitasFormKey.currentState!.validate() ||
+        !_alamatFormKey.currentState!.validate() ||
+        !_orangTuaFormKey.currentState!.validate()) {
+      return;
+    }
     if (_tanggalLahir == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tanggal lahir wajib diisi')),
@@ -99,7 +106,7 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       nisn: _nisn.text.trim(),
       namaLengkap: _namaLengkap.text.trim(),
       jenisKelamin: _jenisKelamin,
-      agama: _agama.text.trim(),
+      agama: _agama,
       tempatLahir: _tempatLahir.text.trim(),
       tanggalLahir: _tanggalLahir!,
       nomorTlp: _nomorTlp.text.trim(),
@@ -123,9 +130,9 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       if (widget.student == null) {
         await StudentsService.create(student);
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Berhasil menambah data')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Berhasil menambah data')),
+        );
       } else {
         await StudentsService.update(widget.student!.id!, student);
         if (!mounted) return;
@@ -137,9 +144,9 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyimpan: $e')),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -165,67 +172,163 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
     final isEdit = widget.student != null;
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Ubah Siswa' : 'Tambah Siswa')),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sectionTitle('Identitas'),
-              _text('NISN', _nisn, validator: _required),
-              _text('Nama Lengkap', _namaLengkap, validator: _required),
-              _dropdownJenisKelamin(),
-              _text('Agama', _agama, validator: _required),
-              _text('Tempat Lahir', _tempatLahir, validator: _required),
-              _dateField('Tanggal Lahir'),
-              _text('Nomor Tlp/HP', _nomorTlp, validator: _required),
-              _text('NIK', _nik, validator: _required),
-
-              _sectionTitle('Alamat'),
-              _text('Jalan', _jalan, validator: _required),
-              _text('RT/RW', _rtRw, validator: _required),
-              _text('Dusun', _dusun, validator: _required),
-              _text('Desa', _desa, validator: _required),
-              _text('Kecamatan', _kecamatan, validator: _required),
-              _text('Kabupaten', _kabupaten, validator: _required),
-              _text('Provinsi', _provinsi, validator: _required),
-              _text('Kode Pos', _kodePos, validator: _required),
-
-              _sectionTitle('Orang Tua/Wali'),
-              _text('Nama Ayah', _namaAyah, validator: _required),
-              _text('Nama Ibu', _namaIbu, validator: _required),
-              _text('Nama Wali (opsional)', _namaWali),
-              _text(
-                'Alamat Orang Tua/Wali',
-                _alamatOrtu,
-                validator: _required,
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(isEdit ? 'Simpan Perubahan' : 'Simpan'),
+      body: Stepper(
+        currentStep: _currentStep,
+        onStepContinue: () {
+          if (_currentStep == 0) {
+            // Validate Identitas step
+            if (_identitasFormKey.currentState!.validate() && _tanggalLahir != null) {
+              setState(() => _currentStep += 1);
+            } else if (_tanggalLahir == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tanggal lahir wajib diisi')),
+              );
+            }
+          } else if (_currentStep == 1) {
+            // Validate Alamat step
+            if (_alamatFormKey.currentState!.validate()) {
+              setState(() => _currentStep += 1);
+            }
+          } else if (_currentStep == 2) {
+            // Submit on final step
+            if (_orangTuaFormKey.currentState!.validate()) {
+              _submit();
+            }
+          }
+        },
+        onStepCancel: () {
+          if (_currentStep > 0) {
+            setState(() => _currentStep -= 1);
+          } else {
+            Navigator.of(context).pop();
+          }
+        },
+        controlsBuilder: (context, details) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Row(
+              children: [
+                if (_currentStep < 2)
+                  ElevatedButton(
+                    onPressed: _submitting ? null : details.onStepContinue,
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Lanjut'),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(isEdit ? 'Simpan Perubahan' : 'Simpan'),
+                  ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: details.onStepCancel,
+                  child: const Text('Batal'),
                 ),
+              ],
+            ),
+          );
+        },
+        steps: [
+          Step(
+            title: const Text('Identitas'),
+            content: Form(
+              key: _identitasFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _text('NISN', _nisn, validator: _required),
+                  _text('Nama Lengkap', _namaLengkap, validator: _required),
+                  _dropdownJenisKelamin(),
+                  _dropdownAgama(),
+                  _text('Tempat Lahir', _tempatLahir, validator: _required),
+                  _dateField('Tanggal Lahir'),
+                  _text('Nomor Tlp/HP', _nomorTlp, validator: _phoneValidator),
+                  _text('NIK', _nik, validator: _nikValidator),
+                ],
               ),
-            ],
+            ),
+            isActive: _currentStep >= 0,
+            state: _currentStep > 0 ? StepState.complete : StepState.indexed,
           ),
-        ),
+          Step(
+            title: const Text('Alamat'),
+            content: Form(
+              key: _alamatFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _text('Jalan', _jalan, validator: _required),
+                  _text('RT/RW', _rtRw, validator: _rtRwValidator),
+                  _text('Dusun', _dusun, validator: _required),
+                  _text('Desa', _desa, validator: _required),
+                  _text('Kecamatan', _kecamatan, validator: _required),
+                  _text('Kabupaten', _kabupaten, validator: _required),
+                  _text('Provinsi', _provinsi, validator: _required),
+                  _text('Kode Pos', _kodePos, validator: _required),
+                ],
+              ),
+            ),
+            isActive: _currentStep >= 1,
+            state: _currentStep > 1 ? StepState.complete : StepState.indexed,
+          ),
+          Step(
+            title: const Text('Orang Tua/Wali'),
+            content: Form(
+              key: _orangTuaFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _text('Nama Ayah', _namaAyah, validator: _required),
+                  _text('Nama Ibu', _namaIbu, validator: _required),
+                  _text('Nama Wali (opsional)', _namaWali),
+                  _text(
+                    'Alamat Orang Tua/Wali',
+                    _alamatOrtu,
+                    validator: _required,
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+            isActive: _currentStep >= 2,
+            state: StepState.indexed,
+          ),
+        ],
       ),
     );
   }
 
   String? _required(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null;
+
+  String? _phoneValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+    if (!RegExp(r'^\d+$').hasMatch(v.trim())) return 'Hanya angka yang diperbolehkan';
+    return null;
+  }
+
+  String? _nikValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+    if (!RegExp(r'^\d+$').hasMatch(v.trim())) return 'Hanya angka yang diperbolehkan';
+    return null;
+  }
+
+  String? _rtRwValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+    if (!RegExp(r'^\d+/\d+$').hasMatch(v.trim())) return 'Format RT/RW harus angka/angka';
+    return null;
+  }
 
   Widget _text(
     String label,
@@ -290,12 +393,25 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
     );
   }
 
-  Widget _sectionTitle(String text) {
+  Widget _dropdownAgama() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        value: _agama,
+        items: const [
+          DropdownMenuItem(value: 'Islam', child: Text('Islam')),
+          DropdownMenuItem(value: 'Kristen Protestan', child: Text('Kristen Protestan')),
+          DropdownMenuItem(value: 'Katolik', child: Text('Katolik')),
+          DropdownMenuItem(value: 'Hindu', child: Text('Hindu')),
+          DropdownMenuItem(value: 'Buddha', child: Text('Buddha')),
+          DropdownMenuItem(value: 'Konghucu', child: Text('Konghucu')),
+        ],
+        onChanged: (v) => setState(() => _agama = v ?? 'Islam'),
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'Agama',
+        ),
+        validator: _required,
       ),
     );
   }
