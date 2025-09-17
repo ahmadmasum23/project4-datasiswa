@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:project4/config/supabase_config.dart';
 import 'package:project4/models/student.dart';
 
 class StudentsService {
   static const String table = 'students';
+  static final ValueNotifier<int> refreshSignal = ValueNotifier<int>(0);
 
   static Future<List<Student>> fetchAll() async {
     final response = await SupabaseConfig.client
@@ -26,7 +28,9 @@ class StudentsService {
         .insert(insertMap)
         .select()
         .single();
-    return Student.fromJson(response);
+    final created = Student.fromJson(response);
+    refreshSignal.value++;
+    return created;
   }
 
   static Future<Student> update(String id, Student student) async {
@@ -41,10 +45,13 @@ class StudentsService {
         .eq('id', id)
         .select()
         .single();
-    return Student.fromJson(response);
+    final updated = Student.fromJson(response);
+    refreshSignal.value++;
+    return updated;
   }
 
   static Future<void> deleteById(String id) async {
     await SupabaseConfig.client.from(table).delete().eq('id', id);
+    refreshSignal.value++;
   }
 }

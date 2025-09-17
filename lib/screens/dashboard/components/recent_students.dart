@@ -12,11 +12,21 @@ class RecentStudents extends StatefulWidget {
 
 class _RecentStudentsState extends State<RecentStudents> {
   late Future<List<Student>> _future;
+  int _page = 0;
+  static const int _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
     _future = StudentsService.fetchAll();
+    StudentsService.refreshSignal.addListener(() {
+      if (mounted) {
+        setState(() {
+          _future = StudentsService.fetchAll();
+          _page = 0;
+        });
+      }
+    });
   }
 
   @override
@@ -78,70 +88,106 @@ class _RecentStudentsState extends State<RecentStudents> {
                 if (snapshot.hasError) {
                   return Text('Error: ${snapshot.error}');
                 }
-                final items = (snapshot.data ?? []).take(7).toList();
-                if (items.isEmpty) {
+                final all = snapshot.data ?? [];
+                if (all.isEmpty) {
                   return const Text('Belum ada data');
                 }
+                final start = _page * _pageSize;
+                final end = (start + _pageSize) > all.length
+                    ? all.length
+                    : start + _pageSize;
+                final items = all.sublist(start, end);
 
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 16),
-                  itemBuilder: (context, i) {
-                    final s = items[i];
+                return Column(
+                  children: [
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (context, i) {
+                        final s = items[i];
 
-                    return Row(
+                        return Row(
+                          children: [
+                            // Avatar + Nama
+                            Expanded(
+                              flex: 3,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    height: 30,
+                                    width: 30,
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.primaries[i %
+                                              Colors.primaries.length],
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(
+                                      Icons.insert_drive_file,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      s.namaLengkap,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // NISN
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                s.nisn,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+
+                            // Jenis Kelamin
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                s.jenisKelamin,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Avatar + Nama
-                        Expanded(
-                          flex: 3,
-                          child: Row(
-                            children: [
-                              Container(
-                                height: 30,
-                                width: 30,
-                                decoration: BoxDecoration(
-                                  color: Colors.primaries[i % Colors.primaries.length],
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Icon(
-                                  Icons.insert_drive_file,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  s.namaLengkap,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
+                        Text(
+                          'Menampilkan ${start + 1}-${end} dari ${all.length} siswa',
                         ),
-
-                        // NISN
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            s.nisn,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-
-                        // Jenis Kelamin
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            s.jenisKelamin,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: _page > 0
+                                  ? () => setState(() => _page -= 1)
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: end < all.length
+                                  ? () => setState(() => _page += 1)
+                                  : null,
+                            ),
+                          ],
                         ),
                       ],
-                    );
-                  },
+                    ),
+                  ],
                 );
               },
             ),

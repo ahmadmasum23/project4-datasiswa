@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:project4/constants.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:project4/services/locations_service.dart';
+import 'package:project4/models/location.dart';
 import 'package:project4/models/student.dart';
 import 'package:project4/services/students_service.dart';
 
@@ -89,10 +93,24 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
   }
 
   Future<void> _submit() async {
-    // Validate all forms before submission
     if (!_identitasFormKey.currentState!.validate() ||
         !_alamatFormKey.currentState!.validate() ||
         !_orangTuaFormKey.currentState!.validate()) {
+      return;
+    }
+    // Pre-submit connectivity check
+    try {
+      // a quick ping using Supabase RPC (lightweight) or simple select
+      await StudentsService.fetchAll();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak ada koneksi internet atau server tidak dapat dijangkau',
+          ),
+        ),
+      );
       return;
     }
     if (_tanggalLahir == null) {
@@ -130,9 +148,9 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       if (widget.student == null) {
         await StudentsService.create(student);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Berhasil menambah data')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Berhasil menambah data')));
       } else {
         await StudentsService.update(widget.student!.id!, student);
         if (!mounted) return;
@@ -144,9 +162,9 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -167,6 +185,60 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
     }
   }
 
+  Future<bool> _showConfirmDialog(bool isEdit) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            title: Row(
+              children: [
+                Icon(
+                  isEdit ? Icons.edit_note : Icons.save_alt,
+                  color: isEdit ? primaryColor : primaryColor,
+                  size: 28,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isEdit ? 'Ubah Data?' : 'Simpan Data?',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              isEdit
+                  ? 'Apakah Anda yakin ingin mengubah data siswa ini?'
+                  : 'Apakah Anda yakin ingin menyimpan data siswa baru ini?',
+              style: TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            actions: [
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isEdit ? primaryColor : primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Ya', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.student != null;
@@ -176,8 +248,8 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
         currentStep: _currentStep,
         onStepContinue: () {
           if (_currentStep == 0) {
-            // Validate Identitas step
-            if (_identitasFormKey.currentState!.validate() && _tanggalLahir != null) {
+            if (_identitasFormKey.currentState!.validate() &&
+                _tanggalLahir != null) {
               setState(() => _currentStep += 1);
             } else if (_tanggalLahir == null) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -185,12 +257,10 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
               );
             }
           } else if (_currentStep == 1) {
-            // Validate Alamat step
             if (_alamatFormKey.currentState!.validate()) {
               setState(() => _currentStep += 1);
             }
           } else if (_currentStep == 2) {
-            // Submit on final step
             if (_orangTuaFormKey.currentState!.validate()) {
               _submit();
             }
@@ -221,7 +291,12 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
                   )
                 else
                   ElevatedButton(
-                    onPressed: _submitting ? null : _submit,
+                    onPressed: _submitting
+                        ? null
+                        : () async {
+                            final confirm = await _showConfirmDialog(isEdit);
+                            if (confirm) _submit();
+                          },
                     child: _submitting
                         ? const SizedBox(
                             height: 20,
@@ -230,10 +305,10 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
                           )
                         : Text(isEdit ? 'Simpan Perubahan' : 'Simpan'),
                   ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 TextButton(
                   onPressed: details.onStepCancel,
-                  child: const Text('Batal'),
+                  child: const Text('Kembali'),
                 ),
               ],
             ),
@@ -247,13 +322,18 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _text('NISN', _nisn, validator: _required),
+                  _text('NISN', _nisn, validator: _nisnValidator),
                   _text('Nama Lengkap', _namaLengkap, validator: _required),
                   _dropdownJenisKelamin(),
                   _dropdownAgama(),
                   _text('Tempat Lahir', _tempatLahir, validator: _required),
                   _dateField('Tanggal Lahir'),
-                  _text('Nomor Tlp/HP', _nomorTlp, validator: _phoneValidator),
+                  _text(
+                    'Nomor Tlp/HP',
+                    _nomorTlp,
+                    validator: _phoneValidator,
+                    maxLength: 15,
+                  ),
                   _text('NIK', _nik, validator: _nikValidator),
                 ],
               ),
@@ -270,7 +350,7 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
                 children: [
                   _text('Jalan', _jalan, validator: _required),
                   _text('RT/RW', _rtRw, validator: _rtRwValidator),
-                  _text('Dusun', _dusun, validator: _required),
+                  _dusunTypeAhead(),
                   _text('Desa', _desa, validator: _required),
                   _text('Kecamatan', _kecamatan, validator: _required),
                   _text('Kabupaten', _kabupaten, validator: _required),
@@ -314,19 +394,37 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
 
   String? _phoneValidator(String? v) {
     if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-    if (!RegExp(r'^\d+$').hasMatch(v.trim())) return 'Hanya angka yang diperbolehkan';
+    if (!RegExp(r'^\d+$').hasMatch(v.trim())) {
+      return 'Hanya angka yang diperbolehkan';
+    }
+    final len = v.trim().length;
+    if (len < 12) return 'Minimal 12 digit';
+    if (len > 15) return 'Maksimal 15 digit';
     return null;
   }
 
   String? _nikValidator(String? v) {
     if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-    if (!RegExp(r'^\d+$').hasMatch(v.trim())) return 'Hanya angka yang diperbolehkan';
+    if (!RegExp(r'^\d+$').hasMatch(v.trim())) {
+      return 'Hanya angka yang diperbolehkan';
+    }
+    return null;
+  }
+
+  String? _nisnValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+    final t = v.trim();
+    if (!RegExp(r'^\d{10}$').hasMatch(t)) {
+      return 'NISN harus 10 digit angka';
+    }
     return null;
   }
 
   String? _rtRwValidator(String? v) {
     if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-    if (!RegExp(r'^\d+/\d+$').hasMatch(v.trim())) return 'Format RT/RW harus angka/angka';
+    if (!RegExp(r'^\d+/\d+$').hasMatch(v.trim())) {
+      return 'Format RT/RW harus angka/angka';
+    }
     return null;
   }
 
@@ -335,6 +433,7 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
     TextEditingController c, {
     String? Function(String?)? validator,
     int maxLines = 1,
+    int? maxLength,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -342,9 +441,50 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
         controller: c,
         validator: validator,
         maxLines: maxLines,
+        maxLength: maxLength,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _dusunTypeAhead() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TypeAheadFormField<LocationEntry>(
+        textFieldConfiguration: TextFieldConfiguration(
+          controller: _dusun,
+          decoration: const InputDecoration(
+            labelText: 'Dusun',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        suggestionsCallback: (pattern) async {
+          return await LocationsService.searchDusun(pattern);
+        },
+        itemBuilder: (context, suggestion) {
+          return ListTile(
+            title: Text(suggestion.dusun),
+            subtitle: Text(
+              '${suggestion.desa}, ${suggestion.kecamatan}, ${suggestion.kabupaten}, ${suggestion.provinsi} (${suggestion.kodePos})',
+            ),
+          );
+        },
+        onSuggestionSelected: (suggestion) {
+          _dusun.text = suggestion.dusun;
+          _desa.text = suggestion.desa;
+          _kecamatan.text = suggestion.kecamatan;
+          _kabupaten.text = suggestion.kabupaten;
+          _provinsi.text = suggestion.provinsi;
+          _kodePos.text = suggestion.kodePos;
+          setState(() {});
+        },
+        validator: _required,
+        noItemsFoundBuilder: (context) => const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: Text('Tidak ada dusun ditemukan'),
         ),
       ),
     );
@@ -400,7 +540,10 @@ class _StudentsFormScreenState extends State<StudentsFormScreen> {
         value: _agama,
         items: const [
           DropdownMenuItem(value: 'Islam', child: Text('Islam')),
-          DropdownMenuItem(value: 'Kristen Protestan', child: Text('Kristen Protestan')),
+          DropdownMenuItem(
+            value: 'Kristen Protestan',
+            child: Text('Kristen Protestan'),
+          ),
           DropdownMenuItem(value: 'Katolik', child: Text('Katolik')),
           DropdownMenuItem(value: 'Hindu', child: Text('Hindu')),
           DropdownMenuItem(value: 'Buddha', child: Text('Buddha')),
